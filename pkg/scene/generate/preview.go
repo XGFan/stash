@@ -173,6 +173,20 @@ type previewChunkOptions struct {
 }
 
 func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, options previewChunkOptions, fallback bool, useVsync2 bool) error {
+	if hw := g.hwGenerate(); hw != nil {
+		args := transcoder.Transcode(fn, g.previewVideoChunkHWOptions(hw, options, fallback, useVsync2))
+		err := g.generate(lockCtx, args)
+		if err == nil {
+			return nil
+		}
+		logger.Warnf("[generator] hardware preview chunk failed for %s at %.3fs, retrying with software: %v", fn, options.StartTime, err)
+	}
+
+	args := transcoder.Transcode(fn, g.previewVideoChunkOptions(options, fallback, useVsync2))
+	return g.generate(lockCtx, args)
+}
+
+func (g Generator) previewVideoChunkOptions(options previewChunkOptions, fallback bool, useVsync2 bool) transcoder.TranscodeOptions {
 	var videoFilter ffmpeg.VideoFilter
 	videoFilter = videoFilter.ScaleWidth(scenePreviewWidth)
 
@@ -193,6 +207,33 @@ func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, opt
 		videoArgs = append(videoArgs, "-vsync", "2")
 	}
 
+	return g.previewChunkTrimOptions(options, fallback, ffmpeg.VideoCodecLibX264, videoArgs, g.FFMpegConfig.GetTranscodeInputArgs())
+}
+
+func (g Generator) previewVideoChunkHWOptions(hw *ffmpeg.HWGenerate, options previewChunkOptions, fallback bool, useVsync2 bool) transcoder.TranscodeOptions {
+	videoFilter := hw.ScaleFilter(scenePreviewWidth, -2)
+
+	var videoArgs ffmpeg.Args
+	videoArgs = videoArgs.VideoFilter(videoFilter)
+
+	videoArgs = append(videoArgs,
+		"-profile:v", "high",
+		"-level", "4.2",
+		"-strict", "-2",
+	)
+	videoArgs = append(videoArgs, hw.EncoderArgs()...)
+
+	if useVsync2 {
+		videoArgs = append(videoArgs, "-vsync", "2")
+	}
+
+	inputArgs := append(ffmpeg.Args{}, hw.InputArgs()...)
+	inputArgs = append(inputArgs, g.FFMpegConfig.GetTranscodeInputArgs()...)
+
+	return g.previewChunkTrimOptions(options, fallback, hw.Codec(), videoArgs, inputArgs)
+}
+
+func (g Generator) previewChunkTrimOptions(options previewChunkOptions, fallback bool, codec ffmpeg.VideoCodec, videoArgs ffmpeg.Args, inputArgs []string) transcoder.TranscodeOptions {
 	trimOptions := transcoder.TranscodeOptions{
 		OutputPath: options.OutputPath,
 		StartTime:  options.StartTime,
@@ -201,10 +242,10 @@ func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, opt
 		XError:   !fallback,
 		SlowSeek: fallback,
 
-		VideoCodec: ffmpeg.VideoCodecLibX264,
+		VideoCodec: codec,
 		VideoArgs:  videoArgs,
 
-		ExtraInputArgs:  g.FFMpegConfig.GetTranscodeInputArgs(),
+		ExtraInputArgs:  inputArgs,
 		ExtraOutputArgs: g.FFMpegConfig.GetTranscodeOutputArgs(),
 	}
 
@@ -216,9 +257,7 @@ func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, opt
 		trimOptions.AudioArgs = audioArgs
 	}
 
-	args := transcoder.Transcode(fn, trimOptions)
-
-	return g.generate(lockCtx, args)
+	return trimOptions
 }
 
 func (g Generator) generateConcatFile(chunkFiles []string) (fn string, err error) {

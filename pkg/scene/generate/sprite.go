@@ -34,6 +34,17 @@ func (g Generator) SpriteScreenshot(ctx context.Context, input string, seconds f
 		ssOptions.Height = size
 	}
 
+	if hw := g.hwGenerate(); hw != nil {
+		ssOptions.HW = hw
+		args := transcoder.ScreenshotTime(input, seconds, ssOptions)
+		img, err := g.generateImage(lockCtx, args)
+		if err == nil {
+			return img, nil
+		}
+		logger.Warnf("[generator] hardware sprite screenshot failed for %s at %.3fs, retrying with software: %v", input, seconds, err)
+		ssOptions.HW = nil
+	}
+
 	args := transcoder.ScreenshotTime(input, seconds, ssOptions)
 	img, err := g.generateImage(lockCtx, args)
 	if err != nil {
