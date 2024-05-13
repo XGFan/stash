@@ -48,6 +48,7 @@ type ScenePaths interface {
 type FFMpegConfig interface {
 	GetTranscodeInputArgs() []string
 	GetTranscodeOutputArgs() []string
+	GetTranscodeHardwareAcceleration() bool
 }
 
 type Generator struct {
@@ -60,6 +61,15 @@ type Generator struct {
 }
 
 type generateFn func(lockCtx *fsutil.LockContext, tmpFn string) error
+
+// hwGenerate returns the hardware acceleration to use for generation, or nil
+// if hardware acceleration is disabled or unavailable.
+func (g Generator) hwGenerate() *ffmpeg.HWGenerate {
+	if g.Encoder == nil || g.FFMpegConfig == nil || !g.FFMpegConfig.GetTranscodeHardwareAcceleration() {
+		return nil
+	}
+	return g.Encoder.HWGenerate()
+}
 
 func (g Generator) tempFile(p Paths, pattern string) (*os.File, error) {
 	tmpFile, err := p.TempFile(pattern) // tmp output in case the process ends abruptly

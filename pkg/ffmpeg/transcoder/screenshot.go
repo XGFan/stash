@@ -22,6 +22,9 @@ type ScreenshotOptions struct {
 
 	// SlowSeek uses accurate seek by placing -ss after the input.
 	SlowSeek bool
+
+	// HW enables hardware decoding and scaling if set.
+	HW *ffmpeg.HWGenerate
 }
 
 func (o *ScreenshotOptions) setDefaults() {
@@ -64,6 +67,10 @@ func ScreenshotTime(input string, t float64, options ScreenshotOptions) ffmpeg.A
 	args = args.LogLevel(options.Verbosity)
 	args = args.Overwrite()
 
+	if options.HW != nil {
+		args = append(args, options.HW.InputArgs()...)
+	}
+
 	if !options.SlowSeek {
 		args = args.Seek(t)
 	}
@@ -79,11 +86,21 @@ func ScreenshotTime(input string, t float64, options ScreenshotOptions) ffmpeg.A
 
 	var vf ffmpeg.VideoFilter
 
-	if options.Width > 0 {
-		vf = vf.ScaleWidth(options.Width)
-		args = args.VideoFilter(vf)
-	} else if options.Height > 0 {
-		vf = vf.ScaleHeight(options.Height)
+	if options.HW != nil {
+		if options.Width > 0 {
+			vf = options.HW.ScaleDownloadFilter(options.Width, -2)
+		} else if options.Height > 0 {
+			vf = options.HW.ScaleDownloadFilter(-2, options.Height)
+		}
+	} else {
+		if options.Width > 0 {
+			vf = vf.ScaleWidth(options.Width)
+		} else if options.Height > 0 {
+			vf = vf.ScaleHeight(options.Height)
+		}
+	}
+
+	if vf != "" {
 		args = args.VideoFilter(vf)
 	}
 
