@@ -46,6 +46,10 @@ func CodecInit(codec VideoCodec) (args Args) {
 			"-rc", "vbr",
 			"-cq", "15",
 		)
+	case VideoCodecRK264:
+		args = append(args,
+			"-rc_mode", "0",
+		)
 	case VideoCodecN264H:
 		args = append(args,
 			"-profile", "p7",

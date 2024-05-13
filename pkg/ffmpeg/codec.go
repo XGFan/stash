@@ -23,6 +23,7 @@ var (
 	VideoCodecLibWebP = makeVideoCodec("WebP", "libwebp")
 	VideoCodecBMP     = makeVideoCodec("BMP", "bmp")
 	VideoCodecMJpeg   = makeVideoCodec("Jpeg", "mjpeg")
+	VideoCodecRKMJpeg   = makeVideoCodec("RK-MJpeg", "mjpeg_rkmpp")
 	VideoCodecVP9     = makeVideoCodec("VPX-VP9", "libvpx-vp9")
 	VideoCodecVPX     = makeVideoCodec("VPX-VP8", "libvpx")
 	VideoCodecLibX265 = makeVideoCodec("x265", "libx265")

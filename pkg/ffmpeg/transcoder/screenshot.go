@@ -1,6 +1,9 @@
 package transcoder
 
-import "github.com/stashapp/stash/pkg/ffmpeg"
+import (
+	"fmt"
+	"github.com/stashapp/stash/pkg/ffmpeg"
+)
 
 type ScreenshotOptions struct {
 	OutputPath string
@@ -48,7 +51,42 @@ var (
 		codec:  &ffmpeg.VideoCodecBMP,
 		format: "rawvideo",
 	}
+	ScreenshotOutputTypeRKJpeg = ScreenshotOutputType{
+		codec:  &ffmpeg.VideoCodecRKMJpeg,
+		format: "rawvideo",
+	}
 )
+
+func RKScreenshotTime(input string, t float64, options ScreenshotOptions) ffmpeg.Args {
+	options.setDefaults()
+
+	var args ffmpeg.Args
+	args = append(args, "-hwaccel", "rkmpp",
+		"-hwaccel_output_format", "drm_prime")
+	args = args.LogLevel(options.Verbosity)
+	args = args.Overwrite()
+	args = args.Seek(t)
+
+	args = args.Input(input)
+	args = args.VideoFrames(1)
+
+	if options.Quality > 0 {
+		args = args.FixedQualityScaleVideo(options.Quality)
+	}
+
+	var vf ffmpeg.VideoFilter
+
+	if options.Width > 0 {
+		vf = vf.Append(fmt.Sprintf("scale_rkrga=%v:%v", options.Width, -2))
+		args = args.VideoFilter(vf)
+		args = append(args, "-qp_init", "80")
+	}
+
+	args = args.AppendArgs(options.OutputType)
+	args = args.Output(options.OutputPath)
+
+	return args
+}
 
 func ScreenshotTime(input string, t float64, options ScreenshotOptions) ffmpeg.Args {
 	options.setDefaults()

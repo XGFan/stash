@@ -41,10 +41,10 @@ func generateSpriteScreenshot(encoder *ffmpeg.FFMpeg, input string, t float64) (
 	options := transcoder.ScreenshotOptions{
 		Width:      screenshotSize,
 		OutputPath: "-",
-		OutputType: transcoder.ScreenshotOutputTypeBMP,
+		OutputType: transcoder.ScreenshotOutputTypeRKJpeg,
 	}
 
-	args := transcoder.ScreenshotTime(input, t, options)
+	args := transcoder.RKScreenshotTime(input, t, options)
 	data, err := encoder.GenerateOutput(context.Background(), args, nil)
 	if err != nil {
 		return nil, err

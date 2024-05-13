@@ -174,18 +174,20 @@ type previewChunkOptions struct {
 
 func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, options previewChunkOptions, fallback bool, useVsync2 bool) error {
 	var videoFilter ffmpeg.VideoFilter
-	videoFilter = videoFilter.ScaleWidth(scenePreviewWidth)
+	//videoFilter = videoFilter.ScaleWidth(scenePreviewWidth)
+	videoFilter = videoFilter.Append(fmt.Sprintf("scale_rkrga=%v:%v:", scenePreviewWidth, -2))
 
 	var videoArgs ffmpeg.Args
 	videoArgs = videoArgs.VideoFilter(videoFilter)
 
 	videoArgs = append(videoArgs,
-		"-pix_fmt", "yuv420p",
+		//"-pix_fmt", "nv12",
 		"-profile:v", "high",
 		"-level", "4.2",
 		"-preset", options.Preset,
-		"-crf", "21",
-		"-threads", "4",
+		//"-crf", "21",
+		//"-threads", "4",
+		"-rc_mode", "VBR",
 		"-strict", "-2",
 	)
 
@@ -201,10 +203,12 @@ func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, opt
 		XError:   !fallback,
 		SlowSeek: fallback,
 
-		VideoCodec: ffmpeg.VideoCodecLibX264,
-		VideoArgs:  videoArgs,
+		VideoCodec: ffmpeg.VideoCodecRK264,
+		//VideoCodec: ffmpeg.VideoCodecLibX264,
+		VideoArgs: videoArgs,
 
-		ExtraInputArgs:  g.FFMpegConfig.GetTranscodeInputArgs(),
+		//ExtraInputArgs:  g.FFMpegConfig.GetTranscodeInputArgs(),
+		ExtraInputArgs:  []string{"-hwaccel", "rkmpp", "-hwaccel_output_format", "drm_prime"},
 		ExtraOutputArgs: g.FFMpegConfig.GetTranscodeOutputArgs(),
 	}
 
@@ -217,7 +221,7 @@ func (g Generator) previewVideoChunk(lockCtx *fsutil.LockContext, fn string, opt
 	}
 
 	args := transcoder.Transcode(fn, trimOptions)
-
+	logger.Infof("generate preview args: %s", args)
 	return g.generate(lockCtx, args)
 }
 

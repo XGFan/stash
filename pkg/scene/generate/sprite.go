@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/stashapp/stash/pkg/logger"
 	"image"
 	"image/color"
 	"math"
@@ -32,12 +33,12 @@ func (g Generator) SpriteScreenshot(ctx context.Context, input string, seconds f
 
 	ssOptions := transcoder.ScreenshotOptions{
 		OutputPath: "-",
-		OutputType: transcoder.ScreenshotOutputTypeBMP,
+		OutputType: transcoder.ScreenshotOutputTypeRKJpeg,
 		Width:      spriteScreenshotWidth,
 	}
 
-	args := transcoder.ScreenshotTime(input, seconds, ssOptions)
-
+	args := transcoder.RKScreenshotTime(input, seconds, ssOptions)
+	logger.Infof("SpriteScreenshot args: %+v", args)
 	return g.generateImage(lockCtx, args)
 }
 

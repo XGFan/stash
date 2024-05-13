@@ -20,6 +20,7 @@ var (
 	VideoCodecI264  = makeVideoCodec("H264 Intel Quick Sync Video (QSV)", "h264_qsv")
 	VideoCodecI264C = makeVideoCodec("H264 Intel Quick Sync Video (QSV) Compatibility profile", "h264_qsv")
 	VideoCodecA264  = makeVideoCodec("H264 Advanced Media Framework (AMF)", "h264_amf")
+	VideoCodecRK264 = makeVideoCodec("H264 Rockchip MPP", "h264_rkmpp")
 	VideoCodecM264  = makeVideoCodec("H264 VideoToolbox", "h264_videotoolbox")
 	VideoCodecV264  = makeVideoCodec("H264 VAAPI", "h264_vaapi")
 	VideoCodecR264  = makeVideoCodec("H264 V4L2M2M", "h264_v4l2m2m")
@@ -41,6 +42,7 @@ func (f *FFMpeg) InitHWSupport(ctx context.Context) {
 		VideoCodecN264,
 		VideoCodecI264,
 		VideoCodecI264C,
+		VideoCodecRK264,
 		VideoCodecV264,
 		VideoCodecR264,
 		VideoCodecIVP9,
@@ -65,6 +67,8 @@ func (f *FFMpeg) InitHWSupport(ctx context.Context) {
 		args = args.Output("-")
 
 		cmd := f.Command(ctx, args)
+
+		logger.Debugf("[InitHWSupport] args: %+v", args)
 
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -155,6 +159,9 @@ func (f *FFMpeg) hwDeviceInit(args Args, toCodec VideoCodec, fullhw bool) Args {
 			args = append(args, "-hwaccel_output_format")
 			args = append(args, "vaapi")
 		}
+	case VideoCodecRK264:
+		args = append(args, "-hwaccel")
+		args = append(args, "rkmpp")
 	case VideoCodecI264,
 		VideoCodecI264C,
 		VideoCodecIVP9:
@@ -198,6 +205,11 @@ func (f *FFMpeg) hwFilterInit(toCodec VideoCodec, fullhw bool) VideoFilter {
 		if !fullhw {
 			videoFilter = videoFilter.Append("format=nv12")
 			videoFilter = videoFilter.Append("hwupload_cuda")
+		}
+	case VideoCodecRK264:
+		if !fullhw {
+			videoFilter = videoFilter.Append("format=nv12")
+			videoFilter = videoFilter.Append("hwupload")
 		}
 	case VideoCodecI264,
 		VideoCodecI264C,
@@ -298,6 +310,8 @@ func (f *FFMpeg) hwApplyScaleTemplate(sargs string, codec VideoCodec, match []in
 	var template string
 
 	switch codec {
+	case VideoCodecRK264:
+		template = "scale_rkrga"
 	case VideoCodecN264, VideoCodecN264H:
 		template = "scale_cuda=$value"
 		if fullhw && f.version.Gteq(Version{major: 5}) { // Added in FFMpeg 5
@@ -332,6 +346,7 @@ func (f *FFMpeg) hwCodecMaxRes(codec VideoCodec) (int, int) {
 	case VideoCodecN264,
 		VideoCodecN264H,
 		VideoCodecI264,
+		VideoCodecRK264,
 		VideoCodecI264C:
 		return 4096, 4096
 	}
@@ -360,6 +375,7 @@ func (f *FFMpeg) hwCodecHLSCompatible() *VideoCodec {
 			VideoCodecI264C,
 			VideoCodecV264,
 			VideoCodecR264,
+			VideoCodecRK264,
 			VideoCodecM264: // Note that the Apple encoder sucks at startup, thus HLS quality is crap
 			return &element
 		}
@@ -375,6 +391,7 @@ func (f *FFMpeg) hwCodecMP4Compatible() *VideoCodec {
 			VideoCodecN264H,
 			VideoCodecI264,
 			VideoCodecI264C,
+			VideoCodecRK264,
 			VideoCodecM264:
 			return &element
 		}
